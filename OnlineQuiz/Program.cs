@@ -69,14 +69,23 @@ builder.Services.AddAuthentication(options =>
             if (context.Request.Cookies.ContainsKey("jwt"))
             {
                 context.Token = context.Request.Cookies["jwt"];
-                Console.WriteLine("JWT token retrieved from cookie");
+                Console.WriteLine($"JWT token retrieved from cookie for {context.Request.Path}");
             }
             // Otherwise it will be read from Authorization header by default
             else if (!string.IsNullOrEmpty(context.Request.Headers["Authorization"]))
             {
-                Console.WriteLine("JWT token retrieved from Authorization header");
+                Console.WriteLine($"JWT token retrieved from Authorization header for {context.Request.Path}");
+            }
+            else
+            {
+                Console.WriteLine($"⚠️ No JWT token found (cookie or header) for {context.Request.Path}");
             }
 
+            return Task.CompletedTask;
+        },
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine($"❌ JWT Authentication failed for {context.Request.Path}: {context.Exception.Message}");
             return Task.CompletedTask;
         }
     };

@@ -49,10 +49,11 @@ namespace OnlineQuiz.Controllers
                 }
 
                 // Store JWT token in HTTP-only cookie for web clients
+                var isHttps = Request.IsHttps || Request.Headers["X-Forwarded-Proto"] == "https";
                 var cookieOptions = new CookieOptions
                 {
                     HttpOnly = true, // Prevents JavaScript access (XSS protection)
-                    Secure = true, // Only send over HTTPS
+                    Secure = isHttps, // Only require HTTPS when actually using HTTPS
                     SameSite = SameSiteMode.None, // Required for cross-origin requests (different ports)
                     Expires = loginResponse.TokenExpiration
                 };
