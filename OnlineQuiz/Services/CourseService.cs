@@ -13,19 +13,22 @@ namespace OnlineQuiz.Services
         private readonly IUserRepository _userRepository;
         private readonly ITeacherRepository _teacherRepository;
         private readonly IStudentRepository _studentRepository;
+        private readonly IQuizRepository _quizRepository;
 
         public CourseService(
             ICourseRepository courseRepository,
             IEnrollmentRepository enrollmentRepository,
             IUserRepository userRepository,
             ITeacherRepository teacherRepository,
-            IStudentRepository studentRepository)
+            IStudentRepository studentRepository,
+            IQuizRepository quizRepository)
         {
             _courseRepository = courseRepository;
             _enrollmentRepository = enrollmentRepository;
             _userRepository = userRepository;
             _teacherRepository = teacherRepository;
             _studentRepository = studentRepository;
+            _quizRepository = quizRepository;
         }
 
         public async Task<CourseResponseDto> CreateCourseAsync(CreateCourseDto createCourseDto)
@@ -86,9 +89,26 @@ namespace OnlineQuiz.Services
             if (courses.Any())
             {
                 var instructorUser = await _userRepository.GetByIdAsync(teacherId);
+                var courseIds = response.Select(c => c.CourseId).ToList();
+                
+                // Fetch counts
+                var enrollmentCounts = await _enrollmentRepository.CountByCourseIdsAsync(courseIds);
+                var quizzes = await _quizRepository.GetByCourseIdsAsync(courseIds);
+                var quizCounts = quizzes.GroupBy(q => q.CourseId).ToDictionary(g => g.Key, g => g.Count());
+
                 foreach (var dto in response)
                 {
                     dto.InstructorName = instructorUser?.FullName;
+                    
+                    if (enrollmentCounts.TryGetValue(dto.CourseId, out var eCount))
+                    {
+                        dto.EnrollmentCount = eCount;
+                    }
+                    
+                    if (quizCounts.TryGetValue(dto.CourseId, out var qCount))
+                    {
+                        dto.QuizCount = qCount;
+                    }
                 }
             }
             
@@ -102,17 +122,33 @@ namespace OnlineQuiz.Services
             
             // Collect instructor IDs
             var instructorIds = response.Select(c => c.InstructorId).Distinct().ToList();
+            var courseIds = response.Select(c => c.CourseId).ToList();
             
             // Batch fetch instructors
             var instructors = await _userRepository.GetByIdsAsync(instructorIds);
             var instructorMap = instructors.ToDictionary(u => u.UserId, u => u.FullName);
 
-            // Populate instructor names
+            // Fetch counts
+            var enrollmentCounts = await _enrollmentRepository.CountByCourseIdsAsync(courseIds);
+            var quizzes = await _quizRepository.GetByCourseIdsAsync(courseIds);
+            var quizCounts = quizzes.GroupBy(q => q.CourseId).ToDictionary(g => g.Key, g => g.Count());
+
+            // Populate instructor names and counts
             foreach (var dto in response)
             {
                 if (instructorMap.TryGetValue(dto.InstructorId, out var name))
                 {
                     dto.InstructorName = name;
+                }
+
+                if (enrollmentCounts.TryGetValue(dto.CourseId, out var eCount))
+                {
+                    dto.EnrollmentCount = eCount;
+                }
+                
+                if (quizCounts.TryGetValue(dto.CourseId, out var qCount))
+                {
+                    dto.QuizCount = qCount;
                 }
             }
             
@@ -374,17 +410,33 @@ namespace OnlineQuiz.Services
             
             // Collect instructor IDs
             var instructorIds = response.Select(c => c.InstructorId).Distinct().ToList();
+            var courseIds = response.Select(c => c.CourseId).ToList();
             
             // Batch fetch instructors
             var instructors = await _userRepository.GetByIdsAsync(instructorIds);
             var instructorMap = instructors.ToDictionary(u => u.UserId, u => u.FullName);
 
-            // Populate instructor names
+            // Fetch counts
+            var enrollmentCounts = await _enrollmentRepository.CountByCourseIdsAsync(courseIds);
+            var quizzes = await _quizRepository.GetByCourseIdsAsync(courseIds);
+            var quizCounts = quizzes.GroupBy(q => q.CourseId).ToDictionary(g => g.Key, g => g.Count());
+
+            // Populate instructor names and counts
             foreach (var dto in response)
             {
                 if (instructorMap.TryGetValue(dto.InstructorId, out var name))
                 {
                     dto.InstructorName = name;
+                }
+
+                if (enrollmentCounts.TryGetValue(dto.CourseId, out var eCount))
+                {
+                    dto.EnrollmentCount = eCount;
+                }
+                
+                if (quizCounts.TryGetValue(dto.CourseId, out var qCount))
+                {
+                    dto.QuizCount = qCount;
                 }
             }
             
