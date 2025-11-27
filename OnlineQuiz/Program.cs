@@ -1,6 +1,7 @@
 using DotNetEnv;
 using Mapster;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using OnlineQuiz.Mappings;
@@ -230,6 +231,8 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // Configure CORS for Web (Vue) and Mobile (Flutter)
+var allowedOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")?.Split(',') ?? Array.Empty<string>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowWebAndMobile", policy =>
@@ -239,7 +242,17 @@ builder.Services.AddCors(options =>
                 // Allow localhost for development
                 if (string.IsNullOrEmpty(origin)) return true;
                 if (origin.StartsWith("http://localhost") || origin.StartsWith("https://localhost")) return true;
-                // Add your production domains here
+                
+                // Check against configured allowed origins from environment variable
+                foreach (var allowedOrigin in allowedOrigins)
+                {
+                    var trimmedOrigin = allowedOrigin.Trim();
+                    if (!string.IsNullOrWhiteSpace(trimmedOrigin) && origin.Equals(trimmedOrigin, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+                
                 return false;
             })
             .AllowAnyMethod()
@@ -289,18 +302,22 @@ builder.Services.AddSwaggerGen(c =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+// Configure forwarded headers for AWS Elastic Beanstalk
+app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-    app.UseSwagger();
-    app.MapScalarApiReference(options =>
-    {
-        options.OpenApiRoutePattern = "/swagger/{documentName}/swagger.json";
-        options.WithTitle("Online Quiz API")
-               .WithTheme(ScalarTheme.Purple)
-               .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
-    });
-}
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
+// Configure the HTTP request pipeline.
+// Enable Swagger/Scalar in all environments for API documentation
+app.UseSwagger();
+app.MapScalarApiReference(options =>
+{
+    options.OpenApiRoutePattern = "/swagger/{documentName}/swagger.json";
+    options.WithTitle("Online Quiz API")
+           .WithTheme(ScalarTheme.Purple)
+           .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+});
 
 app.UseHttpsRedirection();
 
