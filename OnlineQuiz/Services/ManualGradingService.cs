@@ -80,6 +80,9 @@ namespace OnlineQuiz.Services
             answer.IsCorrect = gradeDto.IsCorrect;
             var updatedAnswer = await _answerRepository.UpdateAsync(answer);
 
+            // Recalculate attempt score after grading
+            await RecalculateAttemptScoreAsync(answer.AttemptId, teacherId);
+
             return new AnswerResponseDto
             {
                 AnswerId = updatedAnswer.AttemptAnswerId,
