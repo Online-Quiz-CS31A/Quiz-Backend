@@ -319,15 +319,26 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 });
 
 // Configure the HTTP request pipeline.
-// Enable Swagger/Scalar in all environments for API documentation
-app.UseSwagger();
-app.MapScalarApiReference(options =>
+// Swagger/API Documentation Configuration
+var enableSwagger = Environment.GetEnvironmentVariable("ENABLE_SWAGGER")?.ToLower() == "true" || app.Environment.IsDevelopment();
+
+if (enableSwagger)
 {
-    options.OpenApiRoutePattern = "/swagger/{documentName}/swagger.json";
-    options.WithTitle("Online Quiz API")
-           .WithTheme(ScalarTheme.Purple)
-           .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
-});
+    app.UseSwagger();
+    app.MapScalarApiReference(options =>
+    {
+        options.OpenApiRoutePattern = "/swagger/{documentName}/swagger.json";
+        options.WithTitle("Online Quiz API")
+               .WithTheme(ScalarTheme.Purple)
+               .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
+    });
+    
+    Console.WriteLine("Swagger/API documentation is ENABLED. Ensure this is intended for this environment.");
+}
+else
+{
+    Console.WriteLine("Swagger/API documentation is DISABLED for security.");
+}
 
 app.UseHttpsRedirection();
 
