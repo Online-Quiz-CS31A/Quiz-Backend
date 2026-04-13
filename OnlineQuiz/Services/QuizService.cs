@@ -71,7 +71,7 @@ namespace OnlineQuiz.Services
                 var question = new Question
                 {
                     QuizId = createdQuiz.QuizId,
-                    Type = qDto.Type,
+                    Type = NormalizeQuestionType(qDto.Type),
                     Body = qDto.Body,
                     Points = qDto.Points,
                     SortOrder = qDto.SortOrder
@@ -275,7 +275,7 @@ namespace OnlineQuiz.Services
                             if (questionDto.SortOrder.HasValue)
                                 question.SortOrder = questionDto.SortOrder.Value;
                             if (!string.IsNullOrEmpty(questionDto.Type))
-                                question.Type = questionDto.Type;
+                                question.Type = NormalizeQuestionType(questionDto.Type);
 
                             // Note: You'll need UpdateQuestionAsync in repository
                             // For now, we acknowledge the limitation
@@ -287,7 +287,7 @@ namespace OnlineQuiz.Services
                         var newQuestion = new Question
                         {
                             QuizId = quizId,
-                            Type = questionDto.Type ?? "Single",
+                            Type = NormalizeQuestionType(questionDto.Type ?? "Single"),
                             Body = questionDto.Body,
                             Points = questionDto.Points ?? 1.0m,
                             SortOrder = questionDto.SortOrder ?? 0
@@ -388,6 +388,26 @@ namespace OnlineQuiz.Services
             }
 
             return await _quizRepository.BulkDeleteAsync(quizIds);
+        }
+
+        private string NormalizeQuestionType(string type)
+        {
+            if (string.IsNullOrWhiteSpace(type)) return "Single";
+
+            var normalized = type.Trim();
+            
+            if (normalized.Equals("Single Choice", StringComparison.OrdinalIgnoreCase)) return "Single";
+            if (normalized.Equals("Multiple Choice", StringComparison.OrdinalIgnoreCase)) return "Multiple";
+            if (normalized.Equals("True/False", StringComparison.OrdinalIgnoreCase)) return "Single"; // T/F is a type of single choice
+            if (normalized.Equals("Short Answer", StringComparison.OrdinalIgnoreCase)) return "Text";
+            if (normalized.Equals("Essay", StringComparison.OrdinalIgnoreCase)) return "Text";
+            
+            // Return as is if it matches allowed values (case-insensitive check, but return proper case)
+            if (normalized.Equals("Single", StringComparison.OrdinalIgnoreCase)) return "Single";
+            if (normalized.Equals("Multiple", StringComparison.OrdinalIgnoreCase)) return "Multiple";
+            if (normalized.Equals("Text", StringComparison.OrdinalIgnoreCase)) return "Text";
+
+            return normalized; // Fallback
         }
     }
 }

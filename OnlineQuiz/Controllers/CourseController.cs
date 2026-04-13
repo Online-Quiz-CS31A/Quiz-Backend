@@ -287,6 +287,7 @@ namespace OnlineQuiz.Controllers
         [Authorize(Roles = "Admin")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
         public async Task<ActionResult> DeleteCourse(int courseId)
         {
             try
@@ -319,9 +320,16 @@ namespace OnlineQuiz.Controllers
 
                 return NoContent();
             }
+            catch (InvalidOperationException ex)
+            {
+                // This handles cases where course has dependencies (quizzes or enrollments)
+                return Conflict(new { error = ex.Message });
+            }
             catch (Exception ex)
             {
-                return BadRequest(new { error = ex.Message });
+                // Log unexpected errors for debugging
+                Console.WriteLine($"Error deleting course {courseId}: {ex.Message}");
+                return StatusCode(500, new { error = "An error occurred while deleting the course. The course may have dependencies that prevent deletion." });
             }
         }
 

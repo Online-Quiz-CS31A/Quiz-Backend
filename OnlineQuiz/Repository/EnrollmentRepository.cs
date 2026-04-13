@@ -76,6 +76,22 @@ namespace OnlineQuiz.Repository
                 .ToDictionary(g => g.Key, g => g.Count());
         }
 
+        public async Task<Dictionary<int, int>> CountSectionsByCourseIdsAsync(List<int> courseIds)
+        {
+            if (!courseIds.Any()) return new Dictionary<int, int>();
+
+            var response = await _supabaseService.GetClient().From<Enrollment>()
+                .Filter("CourseId", Postgrest.Constants.Operator.In, courseIds)
+                .Get();
+
+            return response.Models
+                .GroupBy(e => e.CourseId)
+                .ToDictionary(
+                    g => g.Key, 
+                    g => g.Select(e => e.Section).Where(s => !string.IsNullOrEmpty(s)).Distinct().Count()
+                );
+        }
+
         public async Task<int> BulkDeleteByIdsAsync(List<int> enrollmentIds)
         {
             if (!enrollmentIds.Any()) return 0;

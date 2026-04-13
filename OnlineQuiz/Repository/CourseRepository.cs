@@ -56,10 +56,21 @@ namespace OnlineQuiz.Repository
 
         public async Task<bool> DeleteAsync(int courseId)
         {
+            // First check if course exists
+            var course = await GetByIdAsync(courseId);
+            if (course == null)
+            {
+                return false;
+            }
+
+            // Attempt to delete the course
             await _supabaseService.GetClient().From<Course>()
                 .Where(c => c.CourseId == courseId)
                 .Delete();
-            return true;
+
+            // Verify deletion succeeded by checking if course still exists
+            var verifyDeleted = await GetByIdAsync(courseId);
+            return verifyDeleted == null;
         }
 
         public async Task<List<Course>> GetByInstructorIdAsync(int instructorId)

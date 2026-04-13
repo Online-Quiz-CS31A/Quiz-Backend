@@ -51,10 +51,15 @@ namespace OnlineQuiz.Tests.Controllers
             return Task.FromResult(list);
         }
 
-        public Task<List<AnswerResponseDto>> GetAnswersForAttemptAsync(int attemptId, int userId)
+        public Task<AttemptWithAnswersDto> GetAnswersForAttemptAsync(int attemptId, int userId)
         {
-            // Return empty list to validate controller's empty result handling
-            return Task.FromResult(new List<AnswerResponseDto>());
+            // Return empty answers collection in wrapper dto to satisfy interface
+            return Task.FromResult(new AttemptWithAnswersDto
+            {
+                AttemptId = attemptId,
+                UserId = userId,
+                Answers = new List<AnswerResponseDto>()
+            });
         }
 
         public Task<AnswerResponseDto> UpdateAnswerAsync(int answerId, CreateAnswerDto updateAnswerDto, int studentId)
@@ -186,8 +191,10 @@ namespace OnlineQuiz.Tests.Controllers
             var result = await controller.GetAnswersForAttempt(attemptId: 123, userId: 99);
 
             var ok = Assert.IsType<OkObjectResult>(result.Result);
-            var list = Assert.IsType<List<AnswerResponseDto>>(ok.Value);
-            Assert.Empty(list);
+            var dto = Assert.IsType<AttemptWithAnswersDto>(ok.Value);
+            Assert.Equal(123, dto.AttemptId);
+            Assert.Equal(99, dto.UserId);
+            Assert.Empty(dto.Answers);
         }
     }
 }
