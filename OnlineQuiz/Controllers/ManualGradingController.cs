@@ -51,7 +51,7 @@ namespace OnlineQuiz.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                return StatusCode(403, new { message = ex.Message });
             }
             catch (ArgumentException ex)
             {
@@ -98,7 +98,7 @@ namespace OnlineQuiz.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                return StatusCode(403, new { message = ex.Message });
             }
             catch (ArgumentException ex)
             {
@@ -140,7 +140,7 @@ namespace OnlineQuiz.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                return StatusCode(403, new { message = ex.Message });
             }
             catch (ArgumentException ex)
             {
@@ -214,7 +214,7 @@ namespace OnlineQuiz.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Forbid(ex.Message);
+                return StatusCode(403, new { message = ex.Message });
             }
             catch (ArgumentException ex)
             {
