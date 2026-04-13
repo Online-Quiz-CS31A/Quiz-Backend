@@ -54,6 +54,21 @@ namespace OnlineQuiz.Repository
             return result.Models;
         }
 
+        public async Task<List<Attempt>> GetByQuizIdsAsync(List<int> quizIds)
+        {
+            if (!quizIds.Any())
+            {
+                return new List<Attempt>();
+            }
+
+            var client = _supabaseService.GetClient();
+            var result = await client.From<Attempt>()
+                .Filter("QuizId", Postgrest.Constants.Operator.In, quizIds)
+                .Order("StartedAt", Postgrest.Constants.Ordering.Descending)
+                .Get();
+            return result.Models;
+        }
+
         public async Task<List<Attempt>> GetByStudentIdAsync(int studentId)
         {
             var client = _supabaseService.GetClient();

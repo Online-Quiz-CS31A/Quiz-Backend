@@ -245,34 +245,115 @@ namespace OnlineQuiz.Services
                 return new List<PendingEssayGradingDto>();
             }
 
-            var pendingGradingList = new List<PendingEssayGradingDto>();
-
-            // Batch fetch all quizzes for all courses at once
+            // Batch fetch all quizzes for all courses at once - OPTIMIZED!
             var courseIds = courses.Select(c => c.CourseId).ToList();
-            var allQuizzes = new List<Quiz>();
-            foreach (var courseId in courseIds)
-            {
-                var quizzes = await _quizRepository.GetByCourseIdAsync(courseId);
-                allQuizzes.AddRange(quizzes);
-            }
+            var allQuizzes = await _quizRepository.GetByCourseIdsAsync(courseIds);
 
             if (!allQuizzes.Any())
             {
                 return new List<PendingEssayGradingDto>();
             }
 
-            // Create course lookup
+            // Create lookups
             var courseMap = courses.ToDictionary(c => c.CourseId);
+            var quizIds = allQuizzes.Select(q => q.QuizId).ToList();
 
-            // Process each quiz using internal method (skips redundant auth checks)
+            // Batch fetch all attempts for all quizzes at once - OPTIMIZED!
+            var allAttempts = await _attemptRepository.GetByQuizIdsAsync(quizIds);
+            var submittedAttempts = allAttempts.Where(a => a.SubmittedAt != null).ToList();
+
+            if (!submittedAttempts.Any())
+            {
+                return new List<PendingEssayGradingDto>();
+            }
+
+            // Batch fetch all questions for all quizzes - OPTIMIZED!
+            var allQuestions = new List<Question>();
+            foreach (var quizId in quizIds)
+            {
+                var questions = await _quizRepository.GetQuestionsByQuizIdAsync(quizId);
+                allQuestions.AddRange(questions);
+            }
+
+            var essayQuestions = allQuestions.Where(q => QuestionTypeConstants.IsEssayType(q.Type)).ToList();
+
+            if (!essayQuestions.Any())
+            {
+                return new List<PendingEssayGradingDto>();
+            }
+
+            var essayQuestionIds = essayQuestions.Select(q => q.QuestionId).ToHashSet();
+            var questionMap = essayQuestions.ToDictionary(q => q.QuestionId);
+            var questionToQuizMap = allQuestions.ToDictionary(q => q.QuestionId, q => q.QuizId);
+
+            // Batch fetch all answers for all attempts at once - OPTIMIZED!
+            var attemptIds = submittedAttempts.Select(a => a.AttemptId).ToList();
+            var allAnswers = await _answerRepository.GetByAttemptIdsAsync(attemptIds);
+
+            // Filter to only essay answers that need grading
+            var pendingEssayAnswers = allAnswers
+                .Where(a => essayQuestionIds.Contains(a.QuestionId) && a.IsCorrect == null)
+                .ToList();
+
+            if (!pendingEssayAnswers.Any())
+            {
+                return new List<PendingEssayGradingDto>();
+            }
+
+            // Batch fetch user information
+            var userIds = submittedAttempts.Select(a => a.UserId).Distinct().ToList();
+            var users = await _userRepository.GetByIdsAsync(userIds);
+            var userMap = users.ToDictionary(u => u.UserId, u => u.FullName);
+
+            // Create attempt lookup
+            var attemptMap = submittedAttempts.ToDictionary(a => a.AttemptId);
+
+            // Group pending answers by quiz
+            var answersByQuiz = pendingEssayAnswers
+                .Where(a => questionToQuizMap.ContainsKey(a.QuestionId))
+                .GroupBy(a => questionToQuizMap[a.QuestionId])
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            // Build result list
+            var pendingGradingList = new List<PendingEssayGradingDto>();
+
             foreach (var quiz in allQuizzes)
             {
-                var pendingAnswers = await GetPendingEssayAnswersForQuizInternalAsync(quiz.QuizId);
+                if (!answersByQuiz.TryGetValue(quiz.QuizId, out var quizAnswers) || !quizAnswers.Any())
+                {
+                    continue;
+                }
+
+                var pendingAnswers = new List<EssayAnswerForGradingDto>();
+
+                foreach (var answer in quizAnswers)
+                {
+                    if (questionMap.TryGetValue(answer.QuestionId, out var question) &&
+                        attemptMap.TryGetValue(answer.AttemptId, out var attempt))
+                    {
+                        var studentName = userMap.GetValueOrDefault(attempt.UserId, "Unknown");
+
+                        pendingAnswers.Add(new EssayAnswerForGradingDto
+                        {
+                            AttemptAnswerId = answer.AttemptAnswerId,
+                            AttemptId = answer.AttemptId,
+                            QuestionId = answer.QuestionId,
+                            QuestionBody = question.Body,
+                            QuestionPoints = question.Points,
+                            StudentAnswer = answer.FreeText,
+                            IsCorrect = answer.IsCorrect,
+                            PointsAwarded = answer.PointsAwarded,
+                            Feedback = answer.Feedback,
+                            StudentName = studentName,
+                            AnsweredAt = attempt.SubmittedAt ?? attempt.StartedAt
+                        });
+                    }
+                }
 
                 if (pendingAnswers.Any())
                 {
                     var course = courseMap.GetValueOrDefault(quiz.CourseId);
-                    
+
                     pendingGradingList.Add(new PendingEssayGradingDto
                     {
                         QuizId = quiz.QuizId,
@@ -280,7 +361,7 @@ namespace OnlineQuiz.Services
                         CourseId = quiz.CourseId,
                         CourseName = course?.Name ?? "Unknown",
                         PendingCount = pendingAnswers.Count,
-                        PendingAnswers = pendingAnswers
+                        PendingAnswers = pendingAnswers.OrderBy(a => a.AnsweredAt).ToList()
                     });
                 }
             }
