@@ -77,6 +77,20 @@ namespace OnlineQuiz.Services
                 throw new UnauthorizedAccessException("Only the course instructor can grade essay answers");
             }
 
+            // Validate PointsAwarded doesn't exceed question's maximum points
+            if (gradeDto.PointsAwarded.HasValue)
+            {
+                if (gradeDto.PointsAwarded.Value < 0)
+                {
+                    throw new ArgumentException("Points awarded cannot be negative");
+                }
+
+                if (gradeDto.PointsAwarded.Value > question.Points)
+                {
+                    throw new ArgumentException($"Points awarded ({gradeDto.PointsAwarded.Value}) cannot exceed the question's maximum points ({question.Points})");
+                }
+            }
+
             // Update the answer
             answer.IsCorrect = gradeDto.IsCorrect;
             answer.PointsAwarded = gradeDto.PointsAwarded;
