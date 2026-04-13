@@ -139,6 +139,28 @@ namespace OnlineQuiz.Services
                 throw new UnauthorizedAccessException("Only the course instructor can grade essay answers");
             }
 
+            // Validate all answer IDs belong to the specified attempt
+            if (bulkGradeDto.Grades.Any())
+            {
+                var answerIds = bulkGradeDto.Grades.Select(g => g.AttemptAnswerId).ToList();
+                var answers = await _answerRepository.GetByIdsAsync(answerIds);
+                
+                var invalidAnswers = answers.Where(a => a.AttemptId != bulkGradeDto.AttemptId).ToList();
+                if (invalidAnswers.Any())
+                {
+                    var invalidIds = string.Join(", ", invalidAnswers.Select(a => a.AttemptAnswerId));
+                    throw new ArgumentException($"Answer IDs [{invalidIds}] do not belong to attempt {bulkGradeDto.AttemptId}");
+                }
+
+                // Check if any answer IDs were not found
+                if (answers.Count != answerIds.Count)
+                {
+                    var foundIds = answers.Select(a => a.AttemptAnswerId).ToHashSet();
+                    var missingIds = answerIds.Where(id => !foundIds.Contains(id)).ToList();
+                    throw new ArgumentException($"Answer IDs [{string.Join(", ", missingIds)}] not found");
+                }
+            }
+
             var responses = new List<AnswerResponseDto>();
 
             foreach (var gradeDto in bulkGradeDto.Grades)

@@ -8,6 +8,7 @@ namespace OnlineQuiz.IRepository
         Task<AttemptAnswer?> GetByIdAsync(int answerId);
         Task<List<AttemptAnswer>> GetByAttemptIdAsync(int attemptId);
         Task<List<AttemptAnswer>> GetByAttemptIdsAsync(List<int> attemptIds);
+        Task<List<AttemptAnswer>> GetByIdsAsync(List<int> answerIds);
         Task<AttemptAnswer> UpdateAsync(AttemptAnswer answer);
         Task<bool> DeleteAsync(int answerId);
     }
