@@ -143,6 +143,18 @@ namespace OnlineQuiz.Services
             if (bulkGradeDto.Grades.Any())
             {
                 var answerIds = bulkGradeDto.Grades.Select(g => g.AttemptAnswerId).ToList();
+                
+                // Check for duplicate answer IDs
+                var duplicateIds = answerIds.GroupBy(id => id)
+                    .Where(g => g.Count() > 1)
+                    .Select(g => g.Key)
+                    .ToList();
+                
+                if (duplicateIds.Any())
+                {
+                    throw new ArgumentException($"Duplicate answer IDs found: [{string.Join(", ", duplicateIds)}]");
+                }
+                
                 var answers = await _answerRepository.GetByIdsAsync(answerIds);
                 
                 var invalidAnswers = answers.Where(a => a.AttemptId != bulkGradeDto.AttemptId).ToList();
