@@ -27,6 +27,10 @@ namespace OnlineQuiz.Services
         public async Task<AnswerResponseDto> RecordAnswerAsync(CreateAnswerDto createAnswerDto, int studentId)
         {
             var attempt = await _attemptRepository.GetByIdAsync(createAnswerDto.AttemptId);
+            if (attempt == null)
+            {
+                throw new ArgumentException($"Attempt with ID {createAnswerDto.AttemptId} not found");
+            }
 
             if (attempt.UserId != studentId)
             {

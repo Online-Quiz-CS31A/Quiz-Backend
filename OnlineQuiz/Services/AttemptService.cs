@@ -3,6 +3,7 @@ using OnlineQuiz.DTOs;
 using OnlineQuiz.IRepository;
 using OnlineQuiz.IServices;
 using OnlineQuiz.Models;
+using OnlineQuiz.Utilities;
 
 namespace OnlineQuiz.Services
 {
@@ -636,7 +637,7 @@ namespace OnlineQuiz.Services
                 bool isCorrect = false;
 
                 // Grade based on question type
-                if (question.Type == "Single" || question.Type == "Multiple")
+                if (question.Type == QuestionTypeConstants.Single || question.Type == QuestionTypeConstants.Multiple)
                 {
                     // Check if student's choice is marked as correct
                     if (answer.ChoiceId.HasValue && choicesMap.TryGetValue(question.QuestionId, out var choices))
@@ -644,6 +645,12 @@ namespace OnlineQuiz.Services
                         var selectedChoice = choices.FirstOrDefault(c => c.ChoiceId == answer.ChoiceId.Value);
                         isCorrect = selectedChoice?.IsCorrect ?? false;
                     }
+                }
+                else if (QuestionTypeConstants.IsEssayType(question.Type))
+                {
+                    // Essay questions require manual grading - leave IsCorrect as null
+                    // Don't update IsCorrect here, it will be set by the teacher
+                    continue; // Skip updating this answer, teacher will grade it manually
                 }
                 // Text questions default to false (require manual grading)
                 // Can be extended with keyword matching or other logic

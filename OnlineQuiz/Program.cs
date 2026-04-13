@@ -123,6 +123,7 @@ builder.Services.AddScoped<OnlineQuiz.IServices.IActivityLogService, OnlineQuiz.
 builder.Services.AddScoped<OnlineQuiz.IServices.INotificationService, OnlineQuiz.Services.NotificationService>();
 builder.Services.AddScoped<OnlineQuiz.Services.IAnalyticsService, OnlineQuiz.Services.AnalyticsService>();
 builder.Services.AddScoped<OnlineQuiz.IServices.IExportImportLogService, OnlineQuiz.Services.ExportImportLogService>();
+builder.Services.AddScoped<OnlineQuiz.IServices.IManualGradingService, OnlineQuiz.Services.ManualGradingService>();
 
 // Register Background Services
 builder.Services.AddHostedService<OnlineQuiz.Services.DeadlineReminderService>();

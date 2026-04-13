@@ -73,7 +73,7 @@ namespace OnlineQuiz.DTOs
         public int QuizId { get; set; }
 
         [Required]
-        public string Type { get; set; } = "Single"; // Single, Multiple, Text
+        public string Type { get; set; } = "Single"; // Valid types: Single, Multiple, Text (Essay)
 
         [Required]
         public string Body { get; set; } = string.Empty;

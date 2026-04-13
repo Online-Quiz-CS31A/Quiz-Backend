@@ -68,10 +68,30 @@ namespace OnlineQuiz.Services
             // Add Questions
             foreach (var qDto in createQuizDto.Questions)
             {
+                var normalizedType = NormalizeQuestionType(qDto.Type);
+                
+                // Validate question type
+                if (!QuestionTypeConstants.IsValid(normalizedType))
+                {
+                    throw new ArgumentException($"Invalid question type: {qDto.Type}. Valid types are: {string.Join(", ", QuestionTypeConstants.ValidTypes)}");
+                }
+                
+                // Validate essay questions don't have choices
+                if (QuestionTypeConstants.IsEssayType(normalizedType) && qDto.Choices.Any())
+                {
+                    throw new ArgumentException("Essay/Text questions cannot have multiple choice options. Please remove choices or change the question type.");
+                }
+                
+                // Validate choice-based questions have at least one choice
+                if (QuestionTypeConstants.RequiresChoices(normalizedType) && !qDto.Choices.Any())
+                {
+                    throw new ArgumentException($"{normalizedType} choice questions must have at least one choice option.");
+                }
+                
                 var question = new Question
                 {
                     QuizId = createdQuiz.QuizId,
-                    Type = NormalizeQuestionType(qDto.Type),
+                    Type = normalizedType,
                     Body = qDto.Body,
                     Points = qDto.Points,
                     SortOrder = qDto.SortOrder
@@ -284,10 +304,30 @@ namespace OnlineQuiz.Services
                     // Create new question
                     else if (!string.IsNullOrEmpty(questionDto.Body))
                     {
+                        var normalizedType = NormalizeQuestionType(questionDto.Type ?? "Single");
+                        
+                        // Validate question type
+                        if (!QuestionTypeConstants.IsValid(normalizedType))
+                        {
+                            throw new ArgumentException($"Invalid question type: {questionDto.Type}. Valid types are: {string.Join(", ", QuestionTypeConstants.ValidTypes)}");
+                        }
+                        
+                        // Validate essay questions don't have choices
+                        if (QuestionTypeConstants.IsEssayType(normalizedType) && questionDto.Choices != null && questionDto.Choices.Any(c => c.Delete != true))
+                        {
+                            throw new ArgumentException("Essay/Text questions cannot have multiple choice options. Please remove choices or change the question type.");
+                        }
+                        
+                        // Validate choice-based questions have at least one choice
+                        if (QuestionTypeConstants.RequiresChoices(normalizedType) && (questionDto.Choices == null || !questionDto.Choices.Any(c => c.Delete != true)))
+                        {
+                            throw new ArgumentException($"{normalizedType} choice questions must have at least one choice option.");
+                        }
+                        
                         var newQuestion = new Question
                         {
                             QuizId = quizId,
-                            Type = NormalizeQuestionType(questionDto.Type ?? "Single"),
+                            Type = normalizedType,
                             Body = questionDto.Body,
                             Points = questionDto.Points ?? 1.0m,
                             SortOrder = questionDto.SortOrder ?? 0
@@ -392,22 +432,25 @@ namespace OnlineQuiz.Services
 
         private string NormalizeQuestionType(string type)
         {
-            if (string.IsNullOrWhiteSpace(type)) return "Single";
+            if (string.IsNullOrWhiteSpace(type)) return QuestionTypeConstants.Single;
 
             var normalized = type.Trim();
             
-            if (normalized.Equals("Single Choice", StringComparison.OrdinalIgnoreCase)) return "Single";
-            if (normalized.Equals("Multiple Choice", StringComparison.OrdinalIgnoreCase)) return "Multiple";
-            if (normalized.Equals("True/False", StringComparison.OrdinalIgnoreCase)) return "Single"; // T/F is a type of single choice
-            if (normalized.Equals("Short Answer", StringComparison.OrdinalIgnoreCase)) return "Text";
-            if (normalized.Equals("Essay", StringComparison.OrdinalIgnoreCase)) return "Text";
+            // Handle common aliases
+            if (normalized.Equals("Single Choice", StringComparison.OrdinalIgnoreCase)) return QuestionTypeConstants.Single;
+            if (normalized.Equals("Multiple Choice", StringComparison.OrdinalIgnoreCase)) return QuestionTypeConstants.Multiple;
+            if (normalized.Equals("True/False", StringComparison.OrdinalIgnoreCase)) return QuestionTypeConstants.Single; // T/F is a type of single choice
+            if (normalized.Equals("Short Answer", StringComparison.OrdinalIgnoreCase)) return QuestionTypeConstants.Text;
+            if (normalized.Equals("Essay", StringComparison.OrdinalIgnoreCase)) return QuestionTypeConstants.Text;
+            if (normalized.Equals("Free Text", StringComparison.OrdinalIgnoreCase)) return QuestionTypeConstants.Text;
+            if (normalized.Equals("Open Ended", StringComparison.OrdinalIgnoreCase)) return QuestionTypeConstants.Text;
             
-            // Return as is if it matches allowed values (case-insensitive check, but return proper case)
-            if (normalized.Equals("Single", StringComparison.OrdinalIgnoreCase)) return "Single";
-            if (normalized.Equals("Multiple", StringComparison.OrdinalIgnoreCase)) return "Multiple";
-            if (normalized.Equals("Text", StringComparison.OrdinalIgnoreCase)) return "Text";
+            // Return proper casing if it matches allowed values (case-insensitive check)
+            if (normalized.Equals(QuestionTypeConstants.Single, StringComparison.OrdinalIgnoreCase)) return QuestionTypeConstants.Single;
+            if (normalized.Equals(QuestionTypeConstants.Multiple, StringComparison.OrdinalIgnoreCase)) return QuestionTypeConstants.Multiple;
+            if (normalized.Equals(QuestionTypeConstants.Text, StringComparison.OrdinalIgnoreCase)) return QuestionTypeConstants.Text;
 
-            return normalized; // Fallback
+            return normalized; // Fallback - will be caught by validation
         }
     }
 }
