@@ -148,6 +148,15 @@ namespace OnlineQuiz.Services
                 throw new UnauthorizedAccessException("Only the course instructor can view pending essay answers");
             }
 
+            return await GetPendingEssayAnswersForQuizInternalAsync(quizId);
+        }
+
+        /// <summary>
+        /// Internal method to get pending essay answers without authorization checks.
+        /// Used by GetAllPendingEssayAnswersForTeacherAsync to avoid redundant checks.
+        /// </summary>
+        private async Task<List<EssayAnswerForGradingDto>> GetPendingEssayAnswersForQuizInternalAsync(int quizId)
+        {
             // Get all submitted attempts for this quiz
             var attempts = await _attemptRepository.GetByQuizIdAsync(quizId);
             var submittedAttempts = attempts.Where(a => a.SubmittedAt != null).ToList();
@@ -167,38 +176,51 @@ namespace OnlineQuiz.Services
             }
 
             var essayQuestionIds = essayQuestions.Select(q => q.QuestionId).ToHashSet();
-            var pendingAnswers = new List<EssayAnswerForGradingDto>();
+            var questionMap = essayQuestions.ToDictionary(q => q.QuestionId);
+
+            // Batch fetch all answers for all attempts at once - OPTIMIZED!
+            var attemptIds = submittedAttempts.Select(a => a.AttemptId).ToList();
+            var allAnswers = await _answerRepository.GetByAttemptIdsAsync(attemptIds);
+
+            // Filter to only essay answers that need grading
+            var pendingEssayAnswers = allAnswers
+                .Where(a => essayQuestionIds.Contains(a.QuestionId) && a.IsCorrect == null)
+                .ToList();
+
+            if (!pendingEssayAnswers.Any())
+            {
+                return new List<EssayAnswerForGradingDto>();
+            }
 
             // Get user IDs for batch fetch
             var userIds = submittedAttempts.Select(a => a.UserId).Distinct().ToList();
             var users = await _userRepository.GetByIdsAsync(userIds);
             var userMap = users.ToDictionary(u => u.UserId, u => u.FullName);
 
-            foreach (var attempt in submittedAttempts)
-            {
-                var answers = await _answerRepository.GetByAttemptIdAsync(attempt.AttemptId);
-                
-                foreach (var answer in answers)
-                {
-                    // Only include essay questions that haven't been graded yet
-                    if (essayQuestionIds.Contains(answer.QuestionId) && answer.IsCorrect == null)
-                    {
-                        var question = essayQuestions.First(q => q.QuestionId == answer.QuestionId);
-                        var studentName = userMap.GetValueOrDefault(attempt.UserId, "Unknown");
+            // Create attempt lookup
+            var attemptMap = submittedAttempts.ToDictionary(a => a.AttemptId);
 
-                        pendingAnswers.Add(new EssayAnswerForGradingDto
-                        {
-                            AttemptAnswerId = answer.AttemptAnswerId,
-                            AttemptId = answer.AttemptId,
-                            QuestionId = answer.QuestionId,
-                            QuestionBody = question.Body,
-                            QuestionPoints = question.Points,
-                            StudentAnswer = answer.FreeText,
-                            IsCorrect = answer.IsCorrect,
-                            StudentName = studentName,
-                            AnsweredAt = attempt.SubmittedAt ?? attempt.StartedAt
-                        });
-                    }
+            // Build result list
+            var pendingAnswers = new List<EssayAnswerForGradingDto>();
+            foreach (var answer in pendingEssayAnswers)
+            {
+                if (questionMap.TryGetValue(answer.QuestionId, out var question) &&
+                    attemptMap.TryGetValue(answer.AttemptId, out var attempt))
+                {
+                    var studentName = userMap.GetValueOrDefault(attempt.UserId, "Unknown");
+
+                    pendingAnswers.Add(new EssayAnswerForGradingDto
+                    {
+                        AttemptAnswerId = answer.AttemptAnswerId,
+                        AttemptId = answer.AttemptId,
+                        QuestionId = answer.QuestionId,
+                        QuestionBody = question.Body,
+                        QuestionPoints = question.Points,
+                        StudentAnswer = answer.FreeText,
+                        IsCorrect = answer.IsCorrect,
+                        StudentName = studentName,
+                        AnsweredAt = attempt.SubmittedAt ?? attempt.StartedAt
+                    });
                 }
             }
 
@@ -217,27 +239,41 @@ namespace OnlineQuiz.Services
 
             var pendingGradingList = new List<PendingEssayGradingDto>();
 
-            foreach (var course in courses)
+            // Batch fetch all quizzes for all courses at once
+            var courseIds = courses.Select(c => c.CourseId).ToList();
+            var allQuizzes = new List<Quiz>();
+            foreach (var courseId in courseIds)
             {
-                // Get all quizzes for this course
-                var quizzes = await _quizRepository.GetByCourseIdAsync(course.CourseId);
+                var quizzes = await _quizRepository.GetByCourseIdAsync(courseId);
+                allQuizzes.AddRange(quizzes);
+            }
 
-                foreach (var quiz in quizzes)
+            if (!allQuizzes.Any())
+            {
+                return new List<PendingEssayGradingDto>();
+            }
+
+            // Create course lookup
+            var courseMap = courses.ToDictionary(c => c.CourseId);
+
+            // Process each quiz using internal method (skips redundant auth checks)
+            foreach (var quiz in allQuizzes)
+            {
+                var pendingAnswers = await GetPendingEssayAnswersForQuizInternalAsync(quiz.QuizId);
+
+                if (pendingAnswers.Any())
                 {
-                    var pendingAnswers = await GetPendingEssayAnswersForQuizAsync(quiz.QuizId, teacherId);
-
-                    if (pendingAnswers.Any())
+                    var course = courseMap.GetValueOrDefault(quiz.CourseId);
+                    
+                    pendingGradingList.Add(new PendingEssayGradingDto
                     {
-                        pendingGradingList.Add(new PendingEssayGradingDto
-                        {
-                            QuizId = quiz.QuizId,
-                            QuizTitle = quiz.Title,
-                            CourseId = course.CourseId,
-                            CourseName = course.Name,
-                            PendingCount = pendingAnswers.Count,
-                            PendingAnswers = pendingAnswers
-                        });
-                    }
+                        QuizId = quiz.QuizId,
+                        QuizTitle = quiz.Title,
+                        CourseId = quiz.CourseId,
+                        CourseName = course?.Name ?? "Unknown",
+                        PendingCount = pendingAnswers.Count,
+                        PendingAnswers = pendingAnswers
+                    });
                 }
             }
 
