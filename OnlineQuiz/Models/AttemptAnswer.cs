@@ -27,5 +27,11 @@ namespace OnlineQuiz.Models
 
         [Column("Is_Correct")]
         public bool? IsCorrect { get; set; }
+
+        [Column("Points_Awarded")]
+        public decimal? PointsAwarded { get; set; }
+
+        [Column("Feedback")]
+        public string? Feedback { get; set; }
     }
 }

@@ -10,7 +10,12 @@ namespace OnlineQuiz.DTOs
         [Required]
         public bool IsCorrect { get; set; }
 
-        [Range(0, 100, ErrorMessage = "Points awarded must be between 0 and 100% of the question's points")]
+        /// <summary>
+        /// Optional: Specific points awarded for partial credit.
+        /// If not provided, IsCorrect determines full points (true) or zero (false).
+        /// If provided, this value is used instead of binary grading.
+        /// </summary>
+        [Range(0, 1000, ErrorMessage = "Points awarded must be between 0 and 1000")]
         public decimal? PointsAwarded { get; set; }
 
         [MaxLength(1000)]
@@ -35,6 +40,8 @@ namespace OnlineQuiz.DTOs
         public decimal QuestionPoints { get; set; }
         public string? StudentAnswer { get; set; }
         public bool? IsCorrect { get; set; }
+        public decimal? PointsAwarded { get; set; }
+        public string? Feedback { get; set; }
         public string StudentName { get; set; } = string.Empty;
         public DateTime AnsweredAt { get; set; }
     }

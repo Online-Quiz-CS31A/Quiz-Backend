@@ -1,6 +1,7 @@
 using OnlineQuiz.DTOs;
 using OnlineQuiz.IRepository;
 using OnlineQuiz.IServices;
+using OnlineQuiz.Models;
 using OnlineQuiz.Utilities;
 
 namespace OnlineQuiz.Services
@@ -78,6 +79,8 @@ namespace OnlineQuiz.Services
 
             // Update the answer
             answer.IsCorrect = gradeDto.IsCorrect;
+            answer.PointsAwarded = gradeDto.PointsAwarded;
+            answer.Feedback = gradeDto.Feedback;
             var updatedAnswer = await _answerRepository.UpdateAsync(answer);
 
             // Recalculate attempt score after grading
@@ -221,6 +224,8 @@ namespace OnlineQuiz.Services
                         QuestionPoints = question.Points,
                         StudentAnswer = answer.FreeText,
                         IsCorrect = answer.IsCorrect,
+                        PointsAwarded = answer.PointsAwarded,
+                        Feedback = answer.Feedback,
                         StudentName = studentName,
                         AnsweredAt = attempt.SubmittedAt ?? attempt.StartedAt
                     });
@@ -322,11 +327,18 @@ namespace OnlineQuiz.Services
             {
                 if (questionMap.TryGetValue(answer.QuestionId, out var question))
                 {
-                    // Only count if IsCorrect is true (null means not graded yet for essays)
-                    if (answer.IsCorrect == true)
+                    // Check if partial credit was awarded
+                    if (answer.PointsAwarded.HasValue)
                     {
+                        // Use partial credit points (teacher specified exact points)
+                        earnedPoints += answer.PointsAwarded.Value;
+                    }
+                    else if (answer.IsCorrect == true)
+                    {
+                        // Full credit (binary grading)
                         earnedPoints += question.Points;
                     }
+                    // If IsCorrect is false or null, no points awarded
                 }
             }
 
