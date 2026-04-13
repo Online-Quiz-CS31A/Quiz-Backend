@@ -113,6 +113,17 @@ namespace OnlineQuiz.Repository
             return response.Models;
         }
 
+        public async Task<List<Question>> GetQuestionsByQuizIdsAsync(List<int> quizIds)
+        {
+            if (!quizIds.Any()) return new List<Question>();
+
+            var response = await _supabaseService.GetClient().From<Question>()
+                .Filter("QuizId", Postgrest.Constants.Operator.In, quizIds)
+                .Order("Sort_Order", Postgrest.Constants.Ordering.Ascending)
+                .Get();
+            return response.Models;
+        }
+
         public async Task<List<Choice>> GetChoicesByQuestionIdsAsync(List<int> questionIds)
         {
             if (!questionIds.Any()) return new List<Choice>();

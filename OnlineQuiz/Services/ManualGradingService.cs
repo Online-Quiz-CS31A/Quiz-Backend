@@ -282,12 +282,7 @@ namespace OnlineQuiz.Services
             }
 
             // Batch fetch all questions for all quizzes - OPTIMIZED!
-            var allQuestions = new List<Question>();
-            foreach (var quizId in quizIds)
-            {
-                var questions = await _quizRepository.GetQuestionsByQuizIdAsync(quizId);
-                allQuestions.AddRange(questions);
-            }
+            var allQuestions = await _quizRepository.GetQuestionsByQuizIdsAsync(quizIds);
 
             var essayQuestions = allQuestions.Where(q => QuestionTypeConstants.IsEssayType(q.Type)).ToList();
 
