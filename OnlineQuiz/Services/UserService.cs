@@ -728,46 +728,62 @@ namespace OnlineQuiz.Services
         // Archive operations
         public async Task<UserResponseDto> ArchiveUserAsync(int userId, int archivedBy)
         {
-            var user = await _userRepository.GetByIdAsync(userId);
-            if (user == null)
+            var archivedUser = await _userRepository.ArchiveAsync(userId, archivedBy);
+            if (archivedUser == null)
             {
                 throw new InvalidOperationException($"User with ID {userId} not found");
             }
 
-            if (user.Status == EntityStatusConstants.Archived)
+            if (archivedUser.Status != EntityStatusConstants.Archived)
             {
-                throw new InvalidOperationException($"User with ID {userId} is already archived");
+                throw new InvalidOperationException($"User with ID {userId} was already archived");
             }
 
-            var archivedUser = await _userRepository.ArchiveAsync(userId, archivedBy);
-            if (archivedUser == null)
+            // Return lightweight DTO without additional DB calls - archive only updates status
+            return new UserResponseDto
             {
-                throw new InvalidOperationException($"Failed to archive user with ID {userId}");
-            }
-
-            return await GetUserByIdAsync(userId) ?? throw new InvalidOperationException("Failed to retrieve archived user");
+                UserId = archivedUser.UserId,
+                Email = archivedUser.Email,
+                FullName = archivedUser.FullName,
+                Status = archivedUser.Status,
+                ContactNumber = archivedUser.ContactNumber,
+                EmergencyContactNumber = archivedUser.EmergencyContactNumber,
+                CreatedAt = archivedUser.CreatedAt,
+                UpdatedAt = archivedUser.UpdatedAt,
+                CreatedBy = archivedUser.CreatedBy,
+                ArchivedAt = archivedUser.ArchivedAt,
+                ArchivedBy = archivedUser.ArchivedBy
+            };
         }
 
         public async Task<UserResponseDto> UnarchiveUserAsync(int userId)
         {
-            var user = await _userRepository.GetByIdAsync(userId);
-            if (user == null)
+            var unarchivedUser = await _userRepository.UnarchiveAsync(userId);
+            if (unarchivedUser == null)
             {
                 throw new InvalidOperationException($"User with ID {userId} not found");
             }
 
-            if (user.Status != EntityStatusConstants.Archived)
+            if (unarchivedUser.Status != EntityStatusConstants.Active)
             {
-                throw new InvalidOperationException($"User with ID {userId} is not archived");
+                throw new InvalidOperationException($"User with ID {userId} was not archived");
             }
 
-            var unarchivedUser = await _userRepository.UnarchiveAsync(userId);
-            if (unarchivedUser == null)
+            // Return lightweight DTO without additional DB calls - unarchive only updates status
+            return new UserResponseDto
             {
-                throw new InvalidOperationException($"Failed to unarchive user with ID {userId}");
-            }
-
-            return await GetUserByIdAsync(userId) ?? throw new InvalidOperationException("Failed to retrieve unarchived user");
+                UserId = unarchivedUser.UserId,
+                Email = unarchivedUser.Email,
+                FullName = unarchivedUser.FullName,
+                Status = unarchivedUser.Status,
+                ContactNumber = unarchivedUser.ContactNumber,
+                EmergencyContactNumber = unarchivedUser.EmergencyContactNumber,
+                CreatedAt = unarchivedUser.CreatedAt,
+                UpdatedAt = unarchivedUser.UpdatedAt,
+                CreatedBy = unarchivedUser.CreatedBy,
+                ArchivedAt = unarchivedUser.ArchivedAt,
+                ArchivedBy = unarchivedUser.ArchivedBy
+            };
         }
 
         public async Task<BulkArchiveResponseDto> BulkArchiveUsersAsync(List<int> userIds, int archivedBy)

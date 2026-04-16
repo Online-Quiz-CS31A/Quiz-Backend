@@ -53,5 +53,14 @@ namespace OnlineQuiz.Models
 
         [Column("ArchivedBy")]
         public int? ArchivedBy { get; set; }
+
+        [Column("FingerprintSlotId")]
+        public int? FingerprintSlotId { get; set; }
+
+        [Column("FingerprintEnrolledAt")]
+        public DateTime? FingerprintEnrolledAt { get; set; }
+
+        [Column("FingerprintLastVerifiedAt")]
+        public DateTime? FingerprintLastVerifiedAt { get; set; }
     }
 }

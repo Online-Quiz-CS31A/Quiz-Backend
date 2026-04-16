@@ -22,6 +22,7 @@ namespace OnlineQuiz.Utilities
             public const string RESTORE = "RESTORE";
             public const string APPROVE = "APPROVE";
             public const string REJECT = "REJECT";
+            public const string VERIFY = "VERIFY";
 
             public static readonly string[] All = new[]
             {
@@ -32,7 +33,8 @@ namespace OnlineQuiz.Utilities
                 SUBMIT, GRADE,
                 EXPORT, IMPORT,
                 ARCHIVE, RESTORE,
-                APPROVE, REJECT
+                APPROVE, REJECT,
+                VERIFY
             };
         }
 
@@ -52,6 +54,7 @@ namespace OnlineQuiz.Utilities
             public const string Notification = "Notification";
             public const string System = "System";
             public const string Auth = "Auth";
+            public const string Biometric = "Biometric";
 
             public static readonly string[] All = new[]
             {
@@ -60,7 +63,7 @@ namespace OnlineQuiz.Utilities
                 Quiz, Question, Choice,
                 Attempt, AttemptAnswer,
                 Notification,
-                System, Auth
+                System, Auth, Biometric
             };
         }
     }

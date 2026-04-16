@@ -25,6 +25,12 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
+// Add SignalR for real-time biometric notifications
+builder.Services.AddSignalR();
+
+// Add HttpContextAccessor for accessing HTTP context in services
+builder.Services.AddHttpContextAccessor();
+
 // Configure Supabase
 var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL") 
     ?? throw new InvalidOperationException("SUPABASE_URL is not set in environment variables");
@@ -34,6 +40,28 @@ var supabaseKey = Environment.GetEnvironmentVariable("SUPABASE_KEY")
 var supabaseService = new SupabaseService(supabaseUrl, supabaseKey);
 await supabaseService.InitializeAsync();
 builder.Services.AddSingleton(supabaseService);
+
+// Configure Biometric ESP32
+var esp32ConnectionString = Environment.GetEnvironmentVariable("BIOMETRIC_ESP32_CONNECTION_STRING") 
+    ?? throw new InvalidOperationException("BIOMETRIC_ESP32_CONNECTION_STRING is not set in environment variables");
+
+var esp32TimeoutStr = Environment.GetEnvironmentVariable("BIOMETRIC_ESP32_TIMEOUT") 
+    ?? throw new InvalidOperationException("BIOMETRIC_ESP32_TIMEOUT is not set in environment variables");
+if (!int.TryParse(esp32TimeoutStr, out int esp32Timeout) || esp32Timeout <= 0)
+{
+    throw new InvalidOperationException($"BIOMETRIC_ESP32_TIMEOUT must be a positive integer, got: {esp32TimeoutStr}");
+}
+
+var esp32RetryAttemptsStr = Environment.GetEnvironmentVariable("BIOMETRIC_ESP32_RETRY_ATTEMPTS") 
+    ?? throw new InvalidOperationException("BIOMETRIC_ESP32_RETRY_ATTEMPTS is not set in environment variables");
+if (!int.TryParse(esp32RetryAttemptsStr, out int esp32RetryAttempts) || esp32RetryAttempts < 0)
+{
+    throw new InvalidOperationException($"BIOMETRIC_ESP32_RETRY_ATTEMPTS must be a non-negative integer, got: {esp32RetryAttemptsStr}");
+}
+
+builder.Configuration["Biometric:ESP32:ConnectionString"] = esp32ConnectionString;
+builder.Configuration["Biometric:ESP32:Timeout"] = esp32Timeout.ToString();
+builder.Configuration["Biometric:ESP32:RetryAttempts"] = esp32RetryAttempts.ToString();
 
 // Configure JWT Authentication
 var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
@@ -109,6 +137,7 @@ builder.Services.AddScoped<OnlineQuiz.IRepository.IAuthRepository, OnlineQuiz.Re
 builder.Services.AddScoped<OnlineQuiz.IRepository.IActivityLogRepository, OnlineQuiz.Repository.ActivityLogRepository>();
 builder.Services.AddScoped<OnlineQuiz.IRepository.INotificationRepository, OnlineQuiz.Repository.NotificationRepository>();
 builder.Services.AddScoped<OnlineQuiz.IRepository.IExportImportLogRepository, OnlineQuiz.Repository.ExportImportLogRepository>();
+builder.Services.AddScoped<OnlineQuiz.IRepository.IBiometricRepository, OnlineQuiz.Repository.BiometricRepository>();
 
 // Register Service Layer
 builder.Services.AddScoped<OnlineQuiz.IServices.IUserService, OnlineQuiz.Services.UserService>();
@@ -124,9 +153,15 @@ builder.Services.AddScoped<OnlineQuiz.IServices.INotificationService, OnlineQuiz
 builder.Services.AddScoped<OnlineQuiz.Services.IAnalyticsService, OnlineQuiz.Services.AnalyticsService>();
 builder.Services.AddScoped<OnlineQuiz.IServices.IExportImportLogService, OnlineQuiz.Services.ExportImportLogService>();
 builder.Services.AddScoped<OnlineQuiz.IServices.IManualGradingService, OnlineQuiz.Services.ManualGradingService>();
+builder.Services.AddScoped<OnlineQuiz.IServices.IBiometricService, OnlineQuiz.Services.BiometricService>();
+
+// Register ESP32 Service (Mock for now, swap to real later)
+// MUST be Singleton so events work across the app
+builder.Services.AddSingleton<OnlineQuiz.IServices.IESP32Service, OnlineQuiz.Services.MockESP32Service>();
 
 // Register Background Services
 builder.Services.AddHostedService<OnlineQuiz.Services.DeadlineReminderService>();
+builder.Services.AddHostedService<OnlineQuiz.Services.BiometricListenerService>();
 
 // Configure Rate Limiting
 builder.Services.AddRateLimiter(options =>
@@ -372,5 +407,8 @@ app.UseAuthorization();
 app.MapGet("/", () => Results.Redirect("/scalar/v1"));
 
 app.MapControllers();
+
+// Map SignalR Hub for real-time biometric notifications
+app.MapHub<OnlineQuiz.Hubs.BiometricHub>("/hubs/biometric");
 
 app.Run();

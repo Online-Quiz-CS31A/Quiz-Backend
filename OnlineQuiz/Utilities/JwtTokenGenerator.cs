@@ -114,5 +114,14 @@ namespace OnlineQuiz.Utilities
             }
             return null;
         }
+
+        /// <summary>
+        /// Extract role name from ClaimsPrincipal
+        /// </summary>
+        public static string? GetUserRole(ClaimsPrincipal principal)
+        {
+            return principal.FindFirst(ClaimTypes.Role)?.Value 
+                ?? principal.FindFirst("RoleName")?.Value;
+        }
     }
 }

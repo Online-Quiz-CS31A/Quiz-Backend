@@ -604,46 +604,36 @@ namespace OnlineQuiz.Services
         // Archive operations
         public async Task<CourseResponseDto> ArchiveCourseAsync(int courseId, int archivedBy)
         {
-            var course = await _courseRepository.GetByIdAsync(courseId);
-            if (course == null)
+            var archivedCourse = await _courseRepository.ArchiveAsync(courseId, archivedBy);
+            if (archivedCourse == null)
             {
                 throw new InvalidOperationException($"Course with ID {courseId} not found");
             }
 
-            if (course.Status == EntityStatusConstants.Archived)
+            if (archivedCourse.Status != EntityStatusConstants.Archived)
             {
-                throw new InvalidOperationException($"Course with ID {courseId} is already archived");
+                throw new InvalidOperationException($"Course with ID {courseId} was already archived");
             }
 
-            var archivedCourse = await _courseRepository.ArchiveAsync(courseId, archivedBy);
-            if (archivedCourse == null)
-            {
-                throw new InvalidOperationException($"Failed to archive course with ID {courseId}");
-            }
-
-            return await GetCourseByIdAsync(courseId) ?? throw new InvalidOperationException("Failed to retrieve archived course");
+            // Return lightweight DTO without additional DB calls - archive only updates status
+            return archivedCourse.Adapt<CourseResponseDto>();
         }
 
         public async Task<CourseResponseDto> UnarchiveCourseAsync(int courseId)
         {
-            var course = await _courseRepository.GetByIdAsync(courseId);
-            if (course == null)
+            var unarchivedCourse = await _courseRepository.UnarchiveAsync(courseId);
+            if (unarchivedCourse == null)
             {
                 throw new InvalidOperationException($"Course with ID {courseId} not found");
             }
 
-            if (course.Status != EntityStatusConstants.Archived)
+            if (unarchivedCourse.Status != EntityStatusConstants.Active)
             {
-                throw new InvalidOperationException($"Course with ID {courseId} is not archived");
+                throw new InvalidOperationException($"Course with ID {courseId} was not archived");
             }
 
-            var unarchivedCourse = await _courseRepository.UnarchiveAsync(courseId);
-            if (unarchivedCourse == null)
-            {
-                throw new InvalidOperationException($"Failed to unarchive course with ID {courseId}");
-            }
-
-            return await GetCourseByIdAsync(courseId) ?? throw new InvalidOperationException("Failed to retrieve unarchived course");
+            // Return lightweight DTO without additional DB calls - unarchive only updates status
+            return unarchivedCourse.Adapt<CourseResponseDto>();
         }
 
         public async Task<BulkArchiveResponseDto> BulkArchiveCoursesAsync(List<int> courseIds, int archivedBy)

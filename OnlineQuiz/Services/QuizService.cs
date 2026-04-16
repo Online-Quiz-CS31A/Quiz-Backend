@@ -463,7 +463,8 @@ namespace OnlineQuiz.Services
                 throw new InvalidOperationException($"Failed to archive quiz with ID {quizId}");
             }
 
-            return await GetQuizByIdAsync(quizId) ?? throw new InvalidOperationException("Failed to retrieve archived quiz");
+            // Return lightweight DTO without additional DB calls - archive only updates status
+            return archivedQuiz.Adapt<QuizResponseDto>();
         }
 
         public async Task<QuizResponseDto> UnarchiveQuizAsync(int quizId, int userId)
@@ -498,7 +499,8 @@ namespace OnlineQuiz.Services
                 throw new InvalidOperationException($"Failed to unarchive quiz with ID {quizId}");
             }
 
-            return await GetQuizByIdAsync(quizId) ?? throw new InvalidOperationException("Failed to retrieve unarchived quiz");
+            // Return lightweight DTO without additional DB calls - unarchive only updates status
+            return unarchivedQuiz.Adapt<QuizResponseDto>();
         }
 
         public async Task<BulkArchiveResponseDto> BulkArchiveQuizzesAsync(List<int> quizIds, int userId, int archivedBy)
